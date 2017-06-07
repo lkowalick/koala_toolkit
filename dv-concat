@@ -1,5 +1,5 @@
 #!/bin/bash
 
-find . -iname "*.(dv|mov)" | sed "s/^\.\/\(.*\)$/file '\1'/" > manifest.txt
+find . -regex ".*\(dv\|mov\)$" | sed "s/^\.\/\(.*\)$/file '\1'/" > manifest.txt
 
 ffmpeg -f concat -i manifest.txt -c copy $1
