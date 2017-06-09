@@ -1,0 +1,68 @@
+#!/usr/bin/ruby
+
+require 'aws-sdk'
+
+access, secret = File.read("#{ENV['HOME']}/.aws/credentials").each_line.to_a.flat_map { |line| line.chomp.split('=') }.values_at(2,4)
+
+s3 = Aws::S3::Client.new(
+  region: 'us-east-1',
+  credentials: Aws::Credentials.new(access,secret),
+)
+
+filename = ARGV[0]
+
+bucket = 'koalaconversion'
+
+input_opts = {
+  bucket: bucket,
+  key:    filename,
+}
+
+mpu_create_response = s3.create_multipart_upload(input_opts)
+
+PART_SIZE=1024*1024*100
+
+class File
+  def each_part(part_size=PART_SIZE)
+    yield read(part_size) until eof?
+  end
+end
+
+file = File.open(filename)
+
+total_parts = file.size.to_f / PART_SIZE
+current_part = 1
+
+file.each_part do |part|
+  part_response = s3.upload_part({
+    body:        part,
+    bucket:      bucket,
+    key:         filename,
+    part_number: current_part,
+    upload_id:   mpu_create_response.upload_id,
+  })
+
+  percent_complete = (current_part.to_f / total_parts.to_f) * 100
+  percent_complete = 100 if percent_complete > 100
+  percent_complete = sprintf('%.2f', percent_complete.to_f)
+  puts "percent complete: #{percent_complete}"
+  current_part = current_part + 1
+end
+
+input_opts = input_opts.merge({
+  :upload_id   => mpu_create_response.upload_id,
+})
+
+parts_resp = s3.list_parts(input_opts)
+
+input_opts = input_opts.merge(
+  :multipart_upload => {
+    :parts =>
+    parts_resp.parts.map do |part|
+      { :part_number => part.part_number,
+        :etag        => part.etag }
+    end
+  }
+)
+
+mpu_complete_response = s3.complete_multipart_upload(input_opts)
