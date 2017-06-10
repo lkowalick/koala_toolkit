@@ -2,4 +2,4 @@
 
 find . -regex ".*\(dv\|mov\)$" | sed "s/^\.\/\(.*\)$/file '\1'/" > manifest.txt
 
-ffmpeg -f concat -i manifest.txt -c copy $1
+ffmpeg -filter_threads 8 -f concat -i manifest.txt -c copy "$1"
