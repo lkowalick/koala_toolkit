@@ -11,11 +11,19 @@ s3 = Aws::S3::Client.new(
 
 filename = ARGV[0]
 
+directory = ARGV[1]
+
+key = if directory
+        filename + directory
+      else
+        filename
+      end
+
 bucket = 'koalaconversion'
 
 input_opts = {
   bucket: bucket,
-  key:    filename,
+  key:    key,
 }
 
 mpu_create_response = s3.create_multipart_upload(input_opts)
@@ -37,7 +45,7 @@ file.each_part do |part|
   part_response = s3.upload_part({
     body:        part,
     bucket:      bucket,
-    key:         filename,
+    key:         key,
     part_number: current_part,
     upload_id:   mpu_create_response.upload_id,
   })
